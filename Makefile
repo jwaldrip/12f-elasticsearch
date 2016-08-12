@@ -15,7 +15,7 @@ conf:
 # Generate a list of environment variables
 env: conf
 	@cat ./confd/templates/elasticsearch.yml.tmpl | grep -oE '"/(\w|/)+"' | uniq | tr '[a-z]' '[A-Z]' | sed -e 's,"/\(.*\)",\1,' | tr '/' '_' | sed 's/^/ES_/' | sed -e 's/$$/="value"/' > .env
-	@echo "ES_HOME" >> .env
+	@echo 'ES_HOME="value"' >> .env
 
 test: env
 	@docker run --env-file=.env -e QUIET=true -it `docker build -q .` cat config/elasticsearch.yml | ruby -r json -r yaml -e "raise 'no values!' if YAML.load(STDIN.read) == false"
