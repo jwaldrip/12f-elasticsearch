@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+# Generate Configuration
+if [ "$QUIET" == "true" ] ; then
+  ./bin/config &> /dev/null
+  ./bin/shield &> /dev/null
+else
+  ./bin/config
+  ./bin/shield
+fi
+
+# Run command
+exec /docker-entrypoint.sh $@

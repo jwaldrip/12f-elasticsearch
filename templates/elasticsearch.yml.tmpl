@@ -1,0 +1,1364 @@
+# Cluster
+# =======
+# One of the main roles of the master is to decide which shards to allocate to
+# which nodes, and when to move shards between nodes in order to rebalance the
+# cluster.
+
+# Cluster Level Shard Allocation
+# ==============================
+# Shard allocation is the process of allocating shards to nodes. This can happen
+# during initial recovery, replica allocation, rebalancing, or when nodes are
+# added or removed.
+
+# Shard Allocation Settings
+# -------------------------
+#
+# The following dynamic settings may be used to control shard allocation and recovery:
+# Enable or disable allocation for specific kinds of shards:
+#
+#   all - (default) Allows shard allocation for all kinds of shards.
+#   primaries - Allows shard allocation only for primary shards.
+#   new_primaries - Allows shard allocation only for primary shards for new indices.
+#   none - No shard allocations of any kind are allowed for any indices.
+#
+# This setting does not affect the recovery of local primary shards when
+# restarting a node. A restarted node that has a copy of an unassigned primary
+# shard will recover that primary immediately, assuming that the
+# index.recovery.initial_shards setting is satisfied.
+{{ if exists "/cluster/routing/allocation/enable" }}
+cluster.routing.allocation.enable: {{ getv "/cluster/routing/allocation/enable" }}
+{{ else }}
+# cluster.routing.allocation.enable: all
+{{ end }}
+
+# How many concurrent shard recoveries are allowed to happen on a node. Defaults to 2.
+{{ if exists "/cluster/routing/allocation/node/concurrent/recoveries" }}
+cluster.routing.allocation.node_concurrent_recoveries: {{ getv "/cluster/routing/allocation/node/concurrent/recoveries" }}
+{{ else }}
+# cluster.routing.allocation.node_concurrent_recoveries: 2
+{{ end }}
+
+# While the recovery of replicas happens over the network, the recovery of an
+# unassigned primary after node restart uses data from the local disk. These
+# should be fast so more initial primary recoveries can happen in parallel on
+# the same node. Defaults to 4.
+{{ if exists "/cluster/routing/allocation/node/initial/primaries/recoveries" }}
+cluster.routing.allocation.node_initial_primaries_recoveries: {{ getv "/cluster/routing/allocation/node/initial/primaries/recoveries" }}
+{{ else }}
+# cluster.routing.allocation.node_initial_primaries_recoveries: 4
+{{ end }}
+
+# Allows to perform a check to prevent allocation of multiple instances of the
+# same shard on a single host, based on host name and host address. Defaults to
+# false, meaning that no check is performed by default. This setting only
+# applies if multiple nodes are started on the same machine.
+{{ if exists "/cluster/routing/allocation/same/shard/host" }}
+cluster.routing.allocation.same_shard.host: {{ getv "/cluster/routing/allocation/same/shard/host" }}
+{{ else }}
+# cluster.routing.allocation.same_shard.host: false
+{{ end }}
+
+# The number of network streams to open per node to recover a shard from a
+# peer shard. Defaults to 3.
+{{ if exists "/indices/recovery/concurrent/streams" }}
+indices.recovery.concurrent_streams: {{ getv "/indices/recovery/concurrent/streams" }}
+{{ else }}
+# indices.recovery.concurrent_streams: 3
+{{ end }}
+
+# The number of streams to open per node for small files (under 5mb) to recover
+# a shard from a peer shard. Defaults to 2.
+{{ if exists "/indices/recovery/concurrent/small/file/streams" }}
+indices.recovery.concurrent_small_file_streams: {{ getv "/indices/recovery/concurrent/small/file/streams" }}
+{{ else }}
+# indices.recovery.concurrent_small_file_streams: 2
+{{ end }}
+
+# Shard Rebalancing Settings
+# --------------------------
+# The following dynamic settings may be used to control the rebalancing of
+# shards across the cluster:
+
+# Enable or disable rebalancing for specific kinds of shards:
+#
+#   all - (default) Allows shard balancing for all kinds of shards.
+#   primaries - Allows shard balancing only for primary shards.
+#   replicas - Allows shard balancing only for replica shards.
+#   none - No shard balancing of any kind are allowed for any indices.
+{{ if exists "/cluster/routing/rebalance/enable" }}
+cluster.routing.rebalance.enable: {{ getv "/cluster/routing/rebalance/enable" }}
+{{ else }}
+# cluster.routing.rebalance.enable: all
+{{ end }}
+
+# Specify when shard rebalancing is allowed:
+#
+#   always - Always allow rebalancing.
+#   indices_primaries_active - Only when all primaries in the cluster are allocated.
+#   indices_all_active - (default) Only when all shards (primaries and replicas) in the cluster are allocated.
+{{ if exists "/cluster/routing/allocation/allow/rebalance" }}
+cluster.routing.allocation.allow_rebalance: {{ getv "/cluster/routing/allocation/allow/rebalance" }}
+{{ else }}
+# cluster.routing.allocation.allow_rebalance: indices_all_active
+{{ end }}
+
+# Allow to control how many concurrent shard rebalances are allowed cluster wide. Defaults to 2.
+{{ if exists "/cluster/routing/allocation/cluster/concurrent/rebalance" }}
+cluster.routing.allocation.cluster_concurrent_rebalance: {{ getv "/cluster/routing/allocation/cluster/concurrent/rebalance" }}
+{{ else }}
+# cluster.routing.allocation.cluster_concurrent_rebalance: 2
+{{ end }}
+
+# Shard Balancing Heuristics
+# --------------------------
+# The following settings are used together to determine where to place each
+# shard. The cluster is balanced when no allowed action can bring the weights of
+# each node closer together by more then the balance.threshold.
+
+# Defines the weight factor for shards allocated on a node (float). Defaults to
+# 0.45f. Raising this raises the tendency to equalize the number of shards
+# across all nodes in the cluster.
+{{ if exists "/cluster/routing/allocation/balance/shard" }}
+cluster.routing.allocation.balance.shard: {{ getv "/cluster/routing/allocation/balance/shard" }}
+{{ else }}
+# cluster.routing.allocation.balance.threshold: 0.45f
+{{ end }}
+
+# Defines a factor to the number of shards per index allocated on a specific
+# node (float). Defaults to 0.55f. Raising this raises the tendency to equalize
+# the number of shards per index across all nodes in the cluster.
+{{ if exists "/cluster/routing/allocation/balance/index" }}
+cluster.routing.allocation.balance.index: {{ getv "/cluster/routing/allocation/balance/shard" }}
+{{ else }}
+# cluster.routing.allocation.balance.threshold: 0.55f
+{{ end }}
+
+# Minimal optimization value of operations that should be performed
+# (non negative float). Defaults to 1.0f. Raising this will cause the cluster to
+# be less aggressive about optimizing the shard balance.
+{{ if exists "/cluster/routing/allocation/balance/threshold" }}
+cluster.routing.allocation.balance.threshold: {{ getv "/cluster/routing/allocation/balance/threshold" }}
+{{ else }}
+# cluster.routing.allocation.balance.threshold: 1.0f
+{{ end }}
+
+# Disk-based Shard Allocation
+# ===========================
+# Elasticsearch factors in the available disk space on a node before deciding
+# whether to allocate new shards to that node or to actively relocate shards away
+# from that node. Below are the settings that can be configured in the
+# elasticsearch.yml config file or updated dynamically on a live cluster with
+# the cluster-update-settings API:
+
+# Defaults to true. Set to false to disable the disk allocation decider.
+
+{{ if exists "/cluster/routing/allocation/disk/threshold/enabled" }}
+cluster.routing.allocation.disk.threshold_enabled: {{ getv "/cluster/routing/allocation/disk/threshold/enabled" }}
+{{ else }}
+# cluster.routing.allocation.disk.threshold_enabled: true
+{{ end }}
+
+# Controls the low watermark for disk usage. It defaults to 85%, meaning ES will
+# not allocate new shards to nodes once they have more than 85% disk used. It
+# can also be set to an absolute byte value (like 500mb) to prevent ES from
+# allocating shards if less than the configured amount of space is available.
+
+{{ if exists "/cluster/routing/allocation/disk/watermark/low" }}
+cluster.routing.allocation.disk.watermark.low: {{ getv "/cluster/routing/allocation/disk/watermark/low" }}
+{{ else }}
+# cluster.routing.allocation.disk.watermark.low: 85%
+{{ end }}
+
+# Controls the high watermark. It defaults to 90%, meaning ES will attempt to
+# relocate shards to another node if the node disk usage rises above 90%. It can
+# also be set to an absolute byte value (similar to the low watermark) to
+# relocate shards once less than the configured amount of space is available on
+# the node.
+
+{{ if exists "/cluster/routing/allocation/disk/watermark/high" }}
+cluster.routing.allocation.disk.watermark.high: {{ getv "/cluster/routing/allocation/disk/watermark/high" }}
+{{ else }}
+# cluster.routing.allocation.disk.watermark.high: 90%
+{{ end }}
+
+# • NOTE: ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# Percentage values refer to used disk space, while byte values refer to
+# free disk space. This can be confusing, since it flips the meaning of high
+# and low. For example, it makes sense to set the low watermark to 10gb and
+# the high watermark to 5gb, but not the other way around.
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# How often Elasticsearch should check on disk usage for each node in the
+# cluster. Defaults to 30s.
+{{ if exists "/cluster/info/update/interval" }}
+cluster.info.update.interval: {{ getv "/cluster/info/update/interval" }}
+{{ else }}
+# cluster.info.update.interval: 30s
+{{ end }}
+
+# Defaults to true, which means that Elasticsearch will take into account shards
+# that are currently being relocated to the target node when computing a node’s
+# disk usage. Taking relocating shards' sizes into account may, however, mean
+# that the disk usage for a node is incorrectly estimated on the high side,
+# since the relocation could be 90% complete and a recently retrieved disk usage
+# would include the total size of the relocating shard as well as the space
+# already used by the running relocation.
+{{ if exists "/cluster/routing/allocation/disk/include/relocations" }}
+cluster.routing.allocation.disk.include_relocations: {{ getv "/cluster/routing/allocation/disk/include/relocations" }}
+{{ else }}
+# cluster.routing.allocation.disk.include_relocations: true
+{{ end }}
+
+# • NOTE: ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# Prior to 2.0.0, when using multiple data paths, the disk threshold decider
+# only factored in the usage across all data paths (if you had two data paths,
+# one with 50b out of 100b free (50% used) and another with 40b out of 50b free
+# (80% used) it would see the node’s disk usage as 90b out of 150b). In 2.0.0,
+# the minimum and maximum disk usages are tracked separately.
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# Shard Allocation Awareness
+# ==========================
+# When running nodes on multiple VMs on the same physical server, on multiple
+# racks, or across multiple awareness zones, it is more likely that two nodes on
+# the same physical server, in the same rack, or in the same awareness zone will
+# crash at the same time, rather than two unrelated nodes crashing simultaneously.
+#
+# If Elasticsearch is aware of the physical configuration of your hardware, it
+# can ensure that the primary shard and its replica shards are spread across
+# different physical servers, racks, or zones, to minimise the risk of losing
+# all shard copies at the same time.
+#
+# The shard allocation awareness settings allow you to tell Elasticsearch about
+# your hardware configuration.
+#
+# As an example, let’s assume we have several racks. When we start a node, we
+# can tell it which rack it is in by assigning it an arbitrary metadata
+# attribute called rack_id — we could use any attribute name. For example:
+#
+#   ./bin/elasticsearch --node.rack_id rack_one
+#
+# Now, we need to setup shard allocation awareness by telling Elasticsearch
+# which attributes to use. This can be configured in the elasticsearch.yml file
+# on all master-eligible nodes, or it can be set (and changed) with the
+# cluster-update-settings API.
+#
+# For our example, we’ll set the value in the config file:
+#
+#   cluster.routing.allocation.awareness.attributes: rack_id
+#
+# With this config in place, let’s say we start two nodes with node.rack_id set
+# to rack_one, and we create an index with 5 primary shards and 1 replica of
+# each primary. All primaries and replicas are allocated across the two nodes.
+#
+# Now, if we start two more nodes with node.rack_id set to rack_two,
+# Elasticsearch will move shards across to the new nodes, ensuring (if possible)
+# that no two copies of the same shard will be in the same rack. However if
+# rack_two were to fail, taking down both of its nodes, Elasticsearch will still
+# allocate the lost shard copies to nodes in rack_one.
+#
+# • NOTE: ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# When executing search or GET requests, with shard awareness enabled,
+# Elasticsearch will prefer using local shards — shards in the same awareness
+# group — to execute the request. This is usually faster than crossing racks or
+# awareness zones.
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#
+# Multiple awareness attributes can be specified, in which case the combination
+# of values from each attribute is considered to be a separate value.
+{{ if exists "/cluster/routing/allocation/awareness/attributes" }}
+cluster.routing.allocation.awareness.attributes: {{ getv "/cluster/routing/allocation/awareness/attributes" }}
+{{ else }}
+# cluster.routing.allocation.awareness.attributes: rack_id,zone
+{{ end }}
+# • NOTE: ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# When using awareness attributes, shards will not be allocated to nodes that
+# don’t have values set for those attributes.
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+#
+# • NOTE: ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# Number of primary/replica of a shard allocated on a specific group of nodes
+# with the same awareness attribute value is determined by the number of
+# attribute values. When the number of nodes in groups is unbalanced and there
+# are many replicas, replica shards may be left unassigned.
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# Forced Awareness
+# ----------------
+# Imagine that you have two awareness zones and enough hardware across the two
+# zones to host all of your primary and replica shards. But perhaps the hardware
+# in a single zone, while sufficient to host half the shards, would be unable to
+# host ALL the shards.
+#
+# With ordinary awareness, if one zone lost contact with the other zone,
+# Elasticsearch would assign all of the missing replica shards to a single zone.
+# But in this example, this sudden extra load would cause the hardware in the
+# remaining zone to be overloaded.
+#
+# Forced awareness solves this problem by NEVER allowing copies of the same
+# shard to be allocated to the same zone.
+#
+# For example, lets say we have an awareness attribute called zone, and we know
+# we are going to have two zones, zone1 and zone2. Here is how we can force
+# awareness on a node:
+
+# > We must list all possible values that the zone attribute can have.
+{{ if exists "/cluster/routing/allocation/awareness/force/zone/values" }}
+cluster.routing.allocation.awareness.force.zone.values: {{ getv "/cluster/routing/allocation/awareness/force/zone/values" }}
+{{ else }}
+# cluster.routing.allocation.awareness.force.zone.values: zone1,zone2
+{{ end }}
+
+# Now, if we start 2 nodes with node.zone set to zone1 and create an index with
+# 5 shards and 1 replica. The index will be created, but only the 5 primary
+# shards will be allocated (with no replicas). Only when we start more shards
+# with node.zone set to zone2 will the replicas be allocated.
+#
+# The cluster.routing.allocation.awareness.* settings can all be updated
+# dynamically on a live cluster with the cluster-update-settings API.
+
+# Shard Allocation Filtering
+# --------------------------
+
+# While Index Shard Allocation provides per-index settings to control the
+# allocation of shards to nodes, cluster-level shard allocation filtering allows
+# you to allow or disallow the allocation of shards from any index to particular
+# nodes.
+
+# The typical use case for cluster-wide shard allocation filtering is when you
+# want to decommission a node, and you would like to move the shards from that
+# node to other nodes in the cluster before shutting it down.
+
+# For instance, we could decommission a node using its IP address as follows:
+#   cluster.routing.allocation.exclude._ip : "10.0.0.1"
+
+# • NOTE: ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# Shards will only be relocated if it is possible to do so without breaking
+# another routing constraint, such as never allocating a primary and replica
+# shard to the same node.
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# Cluster-wide shard allocation filtering works in the same way as index-level
+# shard allocation filtering (see Index Shard Allocation for details).
+
+# The available dynamic cluster settings are as follows, where {attribute}
+# refers to an arbitrary node attribute.:
+
+# These attributes are supported:
+#
+# Match nodes by node name
+# Assign the index to a node whose name has at least one of the comma-separated values.
+{{ if exists "/cluster/routing/allocation/include/name" }}
+cluster.routing.allocation.include._name: {{ getv "/cluster/routing/allocation/include/name" }}
+{{ else }}
+# cluster.routing.allocation.include._name: larry
+{{ end }}
+# Assign the index to a node whose name has all of the comma-separated values.
+{{ if exists "/cluster/routing/allocation/require/name" }}
+cluster.routing.allocation.require._name: {{ getv "/cluster/routing/allocation/require/name" }}
+{{ else }}
+# cluster.routing.allocation.require._name: larry
+{{ end }}
+# Assign the index to a node whose name has none of the comma-separated values.
+{{ if exists "/cluster/routing/allocation/exclude/name" }}
+cluster.routing.allocation.exclude._name: {{ getv "/cluster/routing/allocation/exclude/name" }}
+{{ else }}
+# cluster.routing.allocation.exclude._name: larry
+{{ end }}
+
+# Match nodes by IP address (the IP address associated with the hostname)
+# Assign the index to a node whose ip has at least one of the comma-separated values.
+{{ if exists "/cluster/routing/allocation/include/ip" }}
+cluster.routing.allocation.include._ip: {{ getv "/cluster/routing/allocation/include/ip" }}
+{{ else }}
+# cluster.routing.allocation.include._ip: 10.10.1.1
+{{ end }}
+# Assign the index to a node whose ip has all of the comma-separated values.
+{{ if exists "/cluster/routing/allocation/require/ip" }}
+cluster.routing.allocation.require._ip: {{ getv "/cluster/routing/allocation/require/ip" }}
+{{ else }}
+# cluster.routing.allocation.require._ip: 10.10.1.1
+{{ end }}
+# Assign the index to a node whose ip has none of the comma-separated values.
+{{ if exists "/cluster/routing/allocation/exclude/ip" }}
+cluster.routing.allocation.exclude._ip: {{ getv "/cluster/routing/allocation/exclude/ip" }}
+{{ else }}
+# cluster.routing.allocation.exclude._ip: 10.10.1.1
+{{ end }}
+
+# Match nodes by hostname
+# Assign the index to a node whose host has at least one of the comma-separated values.
+{{ if exists "/cluster/routing/allocation/include/host" }}
+cluster.routing.allocation.include._host: {{ getv "/cluster/routing/allocation/include/host" }}
+{{ else }}
+# cluster.routing.allocation.include._host: foo
+{{ end }}
+# Assign the index to a node whose host has all of the comma-separated values.
+{{ if exists "/cluster/routing/allocation/require/host" }}
+cluster.routing.allocation.require._host: {{ getv "/cluster/routing/allocation/require/host" }}
+{{ else }}
+# cluster.routing.allocation.require._host: foo
+{{ end }}
+# Assign the index to a node whose host has none of the comma-separated values.
+{{ if exists "/cluster/routing/allocation/exclude/host" }}
+cluster.routing.allocation.exclude._host: {{ getv "/cluster/routing/allocation/exclude/host" }}
+{{ else }}
+# cluster.routing.allocation.exclude._host: foo
+{{ end }}
+
+# Miscellaneous cluster settings
+# ==============================
+
+# Metadata
+# --------
+# An entire cluster may be set to read-only with the following dynamic setting:
+
+# Make the whole cluster read only (indices do not accept write operations),
+# metadata is not allowed to be modified (create or delete indices).
+{{ if exists "/cluster/blocks/read/only" }}
+cluster.blocks.read_only: {{ getv "/cluster/blocks/read/only" }}
+{{ else }}
+# cluster.blocks.read_only: false
+{{ end }}
+# • WARNING! •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# Don’t rely on this setting to prevent changes to your cluster. Any user with
+# access to the cluster-update-settings API can make the cluster read-write
+# again.
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# Logger
+# ------
+# The settings which control logging can be updated dynamically with the logger.
+# prefix. For instance, to increase the logging level of the indices.recovery
+# module to DEBUG, issue this request:
+{{ if exists "/logger/indices/recovery" }}
+logger.indices.recovery: {{ getv "/logger/indices/recovery" }}
+{{ else }}
+# logger.indices.recovery: INFO
+{{ end }}
+
+# Discovery
+# =========
+# The discovery module is responsible for discovering nodes within a cluster, as
+# well as electing a master node.
+#
+# Note, Elasticsearch is a peer to peer based system, nodes communicate with one
+# another directly if operations are delegated / broadcast. All the main APIs
+# (index, delete, search) do not communicate with the master node. The
+# responsibility of the master node is to maintain the global cluster state, and
+# act if nodes join or leave the cluster by reassigning shards. Each time a
+# cluster state is changed, the state is made known to the other nodes in the
+# cluster (the manner depends on the actual discovery implementation).
+
+# Settings
+# --------
+# The cluster.name allows to create separated clusters from one another. The
+# default value for the cluster name is elasticsearch, though it is recommended
+# to change this to reflect the logical group name of the cluster running.
+{{ if exists "/cluster/name" }}
+cluster.name: {{ getv "/cluster/name" }}
+{{ else }}
+# cluster.name: elasticsearch
+{{ end }}
+
+# Local Gateway
+# -------------
+# The local gateway module stores the cluster state and shard data across full
+# cluster restarts.
+#
+# The following _static_ settings, which must be set on every master node,
+# control how long a freshly elected master should wait before it tries to
+# recover the cluster state and the cluster's data:
+
+# The number of (data or master) nodes that are expected to be in the cluster.
+# Recovery of local shards will start as soon as the expected number of nodes
+# have joined the cluster. Defaults to 0
+{{ if exists "/gateway/expected/nodes" }}
+gateway.expected_nodes: {{ getv "/gateway/expected/nodes" }}
+{{ else }}
+# gateway.expected_nodes: 0
+{{ end }}
+
+# The number of master nodes that are expected to be in the cluster. Recovery of
+# local shards will start as soon as the expected number of master nodes have
+# joined the cluster. Defaults to 0
+{{ if exists "/gateway/expected/master/nodes" }}
+gateway.expected_master_nodes: {{ getv "/gateway/expected/master/nodes" }}
+{{ else }}
+# gateway.expected_master_nodes: 0
+{{ end }}
+
+# The number of data nodes that are expected to be in the cluster. Recovery of
+# local shards will start as soon as the expected number of data nodes have
+# joined the cluster. Defaults to 0
+{{ if exists "/gateway/expected/data/nodes" }}
+gateway.expected_data_nodes: {{ getv "/gateway/expected/data/nodes" }}
+{{ else }}
+# gateway.expected_data_nodes: 0
+{{ end }}
+
+# If the expected number of nodes is not achieved, the recovery process waits
+# for the configured amount of time before trying to recover regardless.
+# Defaults to 5m if one of the expected_nodes settings is configured.
+{{ if exists "/gateway/recover/after/time" }}
+gateway.recover_after_time: {{ getv "/gateway/recover/after/time" }}
+{{ else }}
+# gateway.recover_after_time: 5m
+{{ end }}
+
+# Once the recover_after_time duration has timed out, recovery will start as
+# long as the following conditions are met:
+
+# Recover as long as this many data or master nodes have joined the cluster.
+{{ if exists "/gateway/recover/after/nodes" }}
+gateway.recover_after_nodes: {{ getv "/gateway/recover/after/nodes" }}
+{{ else }}
+# gateway.recover_after_nodes: 1
+{{ end }}
+
+# Recover as long as this many master nodes have joined the cluster.
+{{ if exists "/gateway/recover/after/master/nodes" }}
+gateway.recover_after_master_nodes: {{ getv "/gateway/recover/after/master/nodes" }}
+{{ else }}
+# gateway.recover_after_master_nodes: 1
+{{ end }}
+
+# Recover as long as this many data nodes have joined the cluster.
+{{ if exists "/gateway/recover/after/data/nodes" }}
+gateway.recover_after_data_nodes: {{ getv "/gateway/recover/after/data/nodes" }}
+{{ else }}
+# gateway.recover_after_data_nodes: 1
+{{ end }}
+
+# • Note: ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# These settings only take effect on a full cluster restart.
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# HTTP
+# ====
+# The http module allows to expose elasticsearch APIs over HTTP.
+#
+# The http mechanism is completely asynchronous in nature, meaning that there is
+# no blocking thread waiting for a response. The benefit of using asynchronous
+# communication for HTTP is solving the C10k problem.
+#
+# When possible, consider using HTTP keep alive when connecting for better
+# performance and try to get your favorite client not to do HTTP chunking.
+
+# Settings
+# --------
+# The settings in the table below can be configured for HTTP. Note that none of
+# them are dynamically updatable so for them to take effect they should be set
+# in elasticsearch.yml.
+
+# A bind port range. Defaults to 9200-9300.
+{{ if exists "/http/port" }}
+http.port: {{ getv "/http/port" }}
+{{ else }}
+# http.port: 9200-9300
+{{ end }}
+
+# The port that HTTP clients should use when communicating with this node.
+# Useful when a cluster node is behind a proxy or firewall and the http.port is
+# not directly addressable from the outside. Defaults to the actual port
+# assigned via http.port.
+{{ if exists "/http/publish/port" }}
+http.publish_port: {{ getv "/http/publish/port" }}
+{{ else }}
+# http.publish_port: 9200
+{{ end }}
+
+# The host address to bind the HTTP service to. Defaults to http.host (if set)
+# or network.bind_host.
+{{ if exists "/http/bind/host" }}
+http.bind_host: {{ getv "/http/bind/host" }}
+{{ else }}
+# http.bind_host: localhost
+{{ end }}
+
+# The host address to publish for HTTP clients to connect to. Defaults to
+# http.host (if set) or network.publish_host.
+{{ if exists "/http/publish/host" }}
+http.publish_host: {{ getv "/http/publish/host" }}
+{{ else }}
+# http.publish_host: localhost
+{{ end }}
+
+# Used to set the http.bind_host and the http.publish_host Defaults to http.host
+# or network.host.
+{{ if exists "/http/host" }}
+http.host: {{ getv "/http/host" }}
+{{ else }}
+# http.host: localhost
+{{ end }}
+
+# The max content of an HTTP request. Defaults to 100mb. If set to greater than
+# Integer.MAX_VALUE, it will be reset to 100mb.
+{{ if exists "/http/max/content/length" }}
+# http.max_content_length: {{ getv "/http/max/content/length" }}
+{{ else }}
+# http.max_content_length: 100mb
+{{ end }}
+
+# The max length of an HTTP URL. Defaults to 4kb
+{{ if exists "/http/max/initial/line/length" }}
+# http.max_content_length: {{ getv "/http/max/initial/line/length" }}
+{{ else }}
+# http.max_initial_line_length: 4kb
+{{end}}
+
+# The max size of allowed headers. Defaults to 8kB
+{{ if exists "/http/max/header/size" }}
+http.max_header_size: "/http/max/header/size"
+{{ else }}
+# http.max_header_size: 8kb
+{{ end }}
+
+# Support for compression when possible (with Accept-Encoding).
+# Defaults to false.
+{{ if exists "/http/compression" }}
+http.compression: {{ getv "/http/compression" }}
+{{ else }}
+# http.compression: false
+{{ end }}
+
+# Defines the compression level to use. Defaults to 6.
+{{ if exists "/http/compression/level" }}
+http.compression_level: {{ getv "/http/compression/level" }}
+{{ else }}
+# http.compression_level: 6
+{{ end }}
+
+# Enable or disable cross-origin resource sharing, i.e. whether a browser on
+# another origin can do requests to Elasticsearch. Defaults to false.
+{{ if exists "/http/cors/enabled" }}
+http.cors.enabled: {{ getv "/http/cors/enabled" }}
+{{ else }}
+# http.cors.enabled: false
+{{ end }}
+
+# Which origins to allow. Defaults to no origins allowed. If you prepend and
+# append a / to the value, this will be treated as a regular expression,
+# allowing you to support HTTP and HTTPs. for example using
+# /https?:\/\/localhost(:[0-9]+)?/ would return the request header appropriately
+# in both cases. * is a valid value but is considered a security risk as your
+# elasticsearch instance is open to cross origin requests from anywhere.
+{{ if exists "/http/cors/allow/origin" }}
+http.cors.allow-origin: {{ getv "/http/cors/allow/origin" }}
+{{ else }}
+# http.cors.allow-origin: ''
+{{ end }}
+
+# Browsers send a “preflight” OPTIONS-request to determine CORS settings.
+# max-age defines how long the result should be cached for.
+# Defaults to 1728000 (20 days)
+{{ if exists "/http/cors/max/age" }}
+http.cors.max-age: {{ getv "/http/cors/max/age" }}
+{{ else }}
+# http.cors.max-age: 1728000
+{{ end }}
+
+# Which methods to allow.
+# Defaults to OPTIONS, HEAD, GET, POST, PUT, DELETE.
+{{ if exists "/http/cors/allow/methods" }}
+http.cors.allow-methods: {{ getv "/http/cors/allow/methods" }}
+{{ else }}
+# http.cors.allow-methods: OPTIONS, HEAD, GET, POST, PUT, DELETE
+{{ end }}
+
+# Which headers to allow.
+# Defaults to X-Requested-With, Content-Type, Content-Length.
+{{ if exists "/http/cors/allow/headers" }}
+http.cors.allow-headers: {{ getv "/http/cors/allow/headers" }}
+{{ else }}
+# http.cors.allow-headers: X-Requested-With, Content-Type, Content-Length
+{{ end }}
+
+# Whether the Access-Control-Allow-Credentials header should be returned.
+# Note: This header is only returned, when the setting is set to true.
+# Defaults to false
+{{ if exists "/http/cors/allow/credentials" }}
+http.cors.allow-credentials: {{ getv "/http/cors/allow/credentials" }}
+{{ else }}
+# http.cors.allow-credentials: false
+{{ end }}
+
+# Enables or disables the output of detailed error messages and stack traces in
+# response output. Note: When set to false and the error_trace request parameter
+# is specified, an error will be returned; when error_trace is not specified, a
+# simple message will be returned. Defaults to true
+{{ if exists "/http/detailed/errors" }}
+http.detailed_errors.enabled: {{ getv "/http/detailed/errors" }}
+{{ else }}
+# http.detailed_errors.enabled: true
+{{ end }}
+
+# Enable or disable HTTP pipelining, defaults to true.
+{{ if exists "/http/pipelining" }}
+http.pipelining: {{ getv "/http/pipelining" }}
+{{ else }}
+# http.pipelining: true
+{{ end }}
+
+# The maximum number of events to be queued up in memory before a HTTP
+# connection is closed, defaults to 10000.
+{{ if exists "/http/pipelining/max/events" }}
+http.pipelining.max_events: {{ getv "/http/pipelining/max/events" }}
+{{ else }}
+# http.pipelining.max_events: 10000
+{{ end }}
+
+# Disable HTTP
+# ------------
+# The http module can be completely disabled and not started by setting
+# http.enabled to false. Elasticsearch nodes (and Java clients) communicate
+# internally using the transport interface, not HTTP. It might make sense to
+# disable the http layer entirely on nodes which are not meant to serve REST
+# requests directly. For instance, you could disable HTTP on data-only nodes if
+# you also have client nodes which are intended to serve all REST requests. Be
+# aware, however, that you will not be able to send any REST requests
+# (eg to retrieve node stats) directly to nodes which have HTTP disabled.
+{{ if exists "/http/enabled" }}
+http.enabled: {{ getv "/http/enabled" }}
+{{ else }}
+# http.enabled: true
+{{ end }}
+
+# Indices
+# =======
+# The indices module controls index-related settings that are globally managed
+# for all indices, rather than being configurable at a per-index level.
+
+# Circuit Breaker
+# ===============
+# Elasticsearch contains multiple circuit breakers used to prevent operations
+# from causing an OutOfMemoryError. Each breaker specifies a limit for how much
+# memory it can use. Additionally, there is a parent-level breaker that
+# specifies the total amount of memory that can be used across all breakers.
+#
+# These settings can be dynamically updated on a live cluster with the
+# cluster-update-settings API.
+
+# Parent circuit breaker
+# ----------------------
+# The parent-level breaker can be configured with the following setting:
+# Starting limit for overall parent breaker, defaults to 70% of JVM heap.
+{{ if exists "/indices/breaker/total/limit" }}
+indices.breaker.total.limit: {{ getv "/indices/breaker/total/limit" }}
+{{ else }}
+# indices.breaker.total.limit: 2048
+{{ end }}
+
+# Field data circuit breaker
+# --------------------------
+# The field data circuit breaker allows Elasticsearch to estimate the amount of
+# memory a field will require to be loaded into memory. It can then prevent the
+# field data loading by raising an exception. By default the limit is configured
+# to 60% of the maximum JVM heap. It can be configured with the following
+# parameters:
+
+# Limit for fielddata breaker, defaults to 60% of JVM heap
+{{ if exists "/indices/breaker/total/limit" }}
+indices.breaker.fielddata.limit: {{ getv "/indices/breaker/total/limit" }}
+{{ else }}
+# indices.breaker.fielddata.limit: 1024
+{{ end }}
+
+# A constant that all field data estimations are multiplied with to determine a
+# final estimation. Defaults to 1.03
+{{ if exists "/indices/breaker/total/overhead" }}
+indices.breaker.fielddata.overhead: {{ getv "/indices/breaker/total/overhead" }}
+{{ else }}
+# indices.breaker.fielddata.overhead: 1.03
+{{ end }}
+
+# Request circuit breaker
+# -----------------------
+# The request circuit breaker allows Elasticsearch to prevent per-request data
+# structures (for example, memory used for calculating aggregations during a
+# request) from exceeding a certain amount of memory.
+
+# Limit for request breaker, defaults to 40% of JVM heap
+{{ if exists "/indices/breaker/request/limit" }}
+indices.breaker.request.limit: {{ getv "/indices/breaker/request/limit" }}
+{{ else }}
+# indices.breaker.request.limit: 900
+{{ end }}
+
+# A constant that all request estimations are multiplied with to determine a
+# final estimation. Defaults to 1
+{{ if exists "/indices/breaker/request/limit" }}
+indices.breaker.request.overhead: {{ getv "/indices/breaker/request/limit" }}
+{{ else }}
+# indices.breaker.request.overhead: 1
+{{ end }}
+
+# Fielddata
+# ---------
+# The field data cache is used mainly when sorting on or computing aggregations
+# on a field. It loads all the field values to memory in order to provide fast
+# document based access to those values. The field data cache can be expensive
+# to build for a field, so its recommended to have enough memory to allocate it,
+# and to keep it loaded.
+
+# The amount of memory used for the field data cache can be controlled using
+# indices.fielddata.cache.size. Note: reloading the field data which does not
+# fit into your cache will be expensive and perform poorly.
+
+# The max size of the field data cache, eg 30% of node heap space, or an
+# absolute value, eg 12GB. Defaults to unbounded. Also see the section called
+# “Field data circuit breakeredit”.
+{{ if exists "/indices/fielddata/cache/size" }}
+indices.fielddata.cache.size: {{ getv "/indices/fielddata/cache/size" }}
+{{ else }}
+# indices.fielddata.cache.size: unbounded
+{{ end }}
+
+# • NOTE: ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# These are static settings which must be configured on every data node in the
+# cluster.
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# Monitoring field data
+# ---------------------
+# You can monitor memory usage for field data as well as the field data
+# circuit breaker using Nodes Stats API
+
+# Node Query Cache
+# ================
+# The query cache is responsible for caching the results of queries. There is
+# one queries cache per node that is shared by all shards. The cache implements
+# an LRU eviction policy: when a cache becomes full, the least recently used
+# data is evicted to make way for new data.
+
+# The query cache only caches queries which are being used in a filter context.
+
+# The following setting is static and must be configured on every data node in
+# the cluster:
+
+# Controls the memory size for the filter cache , defaults to 10%. Accepts
+# either a percentage value, like 5%, or an exact value, like 512mb.
+{{ if exists "/indices/queries/cache/size" }}
+indices.queries.cache.size: {{ getv "/indices/queries/cache/size" }}
+{{ else }}
+# indices.queries.cache.size: 10%
+{{ end }}
+
+# Indexing Buffer
+# ===============
+# The indexing buffer is used to store newly indexed documents. When it fills
+# up, the documents in the buffer are written to a segment on disk. It is
+# divided between all shards on the node.
+
+# The following settings are static and must be configured on every data node in
+# the cluster:
+
+# Accepts either a percentage or a byte size value. It defaults to 10%, meaning
+# that 10% of the total heap allocated to a node will be used as the indexing
+# buffer size.
+{{ if exists "/indices/memory/index/buffer/size" }}
+indices.memory.index_buffer_size: {{ getv "/indices/memory/index/buffer/size" }}
+{{ else }}
+# indices.memory.index_buffer_size: 10%
+{{ end }}
+
+# If the index_buffer_size is specified as a percentage, then this setting can
+# be used to specify an absolute minimum. Defaults to 48mb.
+{{ if exists "/indices/memory/min/index/buffer/size" }}
+indices.memory.min_index_buffer_size: {{ getv "/indices/memory/min/index/buffer/size" }}
+{{ else }}
+# indices.memory.min_index_buffer_size: 48mb
+{{ end }}
+
+# If the index_buffer_size is specified as a percentage, then this setting can
+# be used to specify an absolute maximum. Defaults to unbounded.
+{{ if exists "/indices/memory/max/index/buffer/size" }}
+indices.memory.max_index_buffer_size: {{ getv "/indices/memory/max/index/buffer/size" }}
+{{ else }}
+# indices.memory.max_index_buffer_size: 48mb
+{{ end }}
+
+# Sets a hard lower limit for the memory allocated per shard for its own
+# indexing buffer. Defaults to 4mb.
+{{ if exists "/indices/memory/max/shard/index/buffer/size" }}
+indices.memory.min_shard_index_buffer_size: {{ getv "/indices/memory/max/shard/index/buffer/size" }}
+{{ else }}
+# indices.memory.min_shard_index_buffer_size: 48mb
+{{ end }}
+
+# Shard request cache
+# ===================
+# When a search request is run against an index or against many indices, each
+# involved shard executes the search locally and returns its local results to
+# the coordinating node, which combines these shard-level results into a
+# “global” result set.
+
+# The shard-level request cache module caches the local results on each shard.
+# This allows frequently used (and potentially heavy) search requests to return
+# results almost instantly. The requests cache is a very good fit for the
+# logging use case, where only the most recent index is being actively updated — 
+# results from older indices will be served directly from the cache.
+
+# • Important! •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# For now, the requests cache will only cache the results of search requests
+# where size=0, so it will not cache hits, but it will cache hits.total,
+# aggregations, and suggestions.
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# Cache settings
+# The cache is managed at the node level, and has a default maximum size of
+# 1% of the heap. This can be changed in the config/elasticsearch.yml file with:
+
+{{ if exists "/indices/requests/cache/size" }}
+indices.requests.cache.size: {{ getv "/indices/requests/cache/size" }}
+{{ else }}
+# indices.requests.cache.size: 2%
+{{ end }}
+
+# Also, you can use the indices.requests.cache.expire setting to specify a TTL
+# for cached results, but there should be no reason to do so. Remember that
+# stale results are automatically invalidated when the index is refreshed. This
+# setting is provided for completeness' sake only.
+
+# Indices Recovery
+# ================
+# The following expert settings can be set to manage the recovery policy.
+
+# Defaults to 3.
+{{ if exists "/indices/recovery/concurrent/streams" }}
+indices.recovery.concurrent_streams: {{ getv "/indices/recovery/concurrent/streams" }}
+{{ else }}
+# indices.recovery.concurrent_streams: 3
+{{ end }}
+
+# Defaults to 2.
+{{ if exists "/indices/recovery/concurrent/small/file/streams" }}
+indices.recovery.concurrent_small_file_streams: {{ getv "/indices/recovery/concurrent/small/file/streams" }}
+{{ else }}
+# indices.recovery.concurrent_streams: 2
+{{ end }}
+
+# Defaults to 512kb.
+{{ if exists "/indices/recovery/file/chunk/size" }}
+indices.recovery.file_chunk_size: {{ getv "/indices/recovery/file/chunk/size" }}
+{{ else }}
+# indices.recovery.file_chunk_size: 512kb
+{{ end }}
+
+# Defaults to 1000.
+{{ if exists "/indices/recovery/translog/ops" }}
+indices.recovery.translog_ops: {{ getv "/indices/recovery/translog/ops" }}
+{{ else }}
+# indices.recovery.translog_ops: 1000
+{{ end }}
+
+# Defaults to 512kb.
+# Defaults to 512kb.
+{{ if exists "/indices/recovery/translog/size" }}
+indices.recovery.translog_size: {{ getv "/indices/recovery/translog/size" }}
+{{ else }}
+# indices.recovery.translog_size: 512kb
+{{ end }}
+
+# Defaults to true.
+{{ if exists "/indices/recovery/compress" }}
+indices.recovery.compress: {{ getv "/indices/recovery/compress" }}
+{{ else }}
+# indices.recovery.compress: true
+{{ end }}
+
+# Defaults to 40mb.
+{{ if exists "/indices/recovery/max/bytes/per/sec" }}
+indices.recovery.max_bytes_per_sec: {{ getv "/indices/recovery/max/bytes/per/sec" }}
+{{ else }}
+# indices.recovery.max_bytes_per_sec: 40mb
+{{ end }}
+
+# TTL interval
+# ============
+# Documents that have a ttl value set need to be deleted once they have expired.
+# How and how often they are deleted is controlled by the following dynamic
+# cluster settings:
+
+# How often the deletion process runs. Defaults to 60s.
+{{ if exists "/indices/ttl/interval" }}
+indices.ttl.interval: {{ getv "/indices/ttl/interval" }}
+{{ else }}
+# indices.ttl.interval: 60s
+{{ end }}
+
+# The deletions are processed with a bulk request. The number of deletions processed can be configured with this settings. Defaults to 10000.
+{{ if exists "/indices/ttl/bulk/size" }}
+indices.ttl.bulk_size: {{ getv "/indices/ttl/bulk/size" }}
+{{ else }}
+# indices.ttl.bulk_size: 10000
+{{ end }}
+
+# Network Settings
+# ================
+# Elasticsearch binds to localhost only by default. This is sufficient for you
+# to run a local development server (or even a development cluster, if you start
+# multiple nodes on the same machine), but you will need to configure some basic
+# network settings in order to run a real production cluster across multiple
+# servers.
+
+# • WARNING! •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# Be careful with the network configuration!
+# Never expose an unprotected node to the public internet.
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# Commonly Used Network Settings
+# ------------------------------
+
+# The node will bind to this hostname or IP address and publish (advertise) this
+# host to other nodes in the cluster. Accepts an IP address, hostname, a special
+# value, or an array of any combination of these.
+# Defaults to _local_.
+{{ if exists "/network/host" }}
+network.host = {{ getv "/network/host" }}
+{{ else }}
+# network.host = _local_
+{{ end}}
+
+# In order to join a cluster, a node needs to know the hostname or IP address of
+# at least some of the other nodes in the cluster. This setting provides the
+# initial list of other nodes that this node will try to contact. Accepts IP
+# addresses or hostnames.
+# Defaults to ["127.0.0.1", "[::1]"].
+{{ if exists "/discovery/zen/ping/unicast/hosts" }}
+discovery.zen.ping.unicast.hosts: {{ getv "/discovery/zen/ping/unicast/hosts" }}
+{{ else }}
+# discovery.zen.ping.unicast.hosts: ["127.0.0.1", "[::1]"]
+{{ end }}
+
+# Port to bind for communication between nodes. Accepts a single value or a
+# range. If a range is specified, the node will bind to the first available port
+# in the range.
+{{ if exists "/transport/tcp/port" }}
+transport.tcp.port: {{ getv "/transport/tcp/port" }}
+{{ else }}
+# transport.tcp.port: 9300-9400.
+{{ end }}
+
+
+# Special values for network.host
+# The following special values may be passed to network.host:
+
+# Addresses of a network interface, for example _en0_.
+# _[networkInterface]_
+
+# Any loopback addresses on the system, for example 127.0.0.1.
+# _local_
+
+# Any site-local addresses on the system, for example 192.168.0.1.
+# _site_
+
+# Any globally-scoped addresses on the system, for example 8.8.8.8.
+# _global_
+
+
+# IPv4 vs IPv6edit
+# These special values will work over both IPv4 and IPv6 by default, but you can
+# also limit this with the use of :ipv4 of :ipv6 specifiers. For example,
+# _en0:ipv4_ would only bind to the IPv4 addresses of interface en0.
+
+# • Tip ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# Discovery in the cloud
+# More special settings are available when running in the cloud with either the
+# AWS Cloud plugin or the Google Compute Engine Cloud plugin installed.
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# Advanced network settings
+# -------------------------
+# The network.host setting explained in Commonly used network settings is a
+# shortcut which sets the bind host and the publish host at the same time. In
+# advanced used cases, such as when running behind a proxy server, you may need
+# to set these settings to different values:
+
+# This specifies which network interface(s) a node should bind to in order to
+# listen for incoming requests. A node can bind to multiple interfaces, e.g.
+# two network cards, or a site-local address and a local address.
+# Defaults to network.host.
+{{ if exists "/network/bind/host" }}
+network.bind_host: {{ getv "/network/bind/host" }}
+{{ else }}
+# network.bind_host: network.host.
+{{ end }}
+
+# The publish host is the single interface that the node advertises to other
+# nodes in the cluster, so that those nodes can connect to it. Currently an
+# elasticsearch node may be bound to multiple addresses, but only publishes one.
+# If not specified, this defaults to the “best” address from network.host,
+# sorted by IPv4/IPv6 stack preference, then by reachability.
+{{ if exists "/network/publish/host" }}
+network.publish_host: {{ getv "/network/publish/host" }}
+{{ else }}
+# network.publish_host: network.host.
+{{ end }}
+
+# Both of the above settings can be configured just like network.host — they
+# accept IP addresses, host names, and special values.
+
+# Advanced TCP Settings
+# Any component that uses TCP (like the HTTP and Transport modules) share the
+# following settings:
+
+# Enable or disable the TCP no delay setting. Defaults to true.
+{{ if exists "/network/tcp/no/delay" }}
+network.tcp.no_delay: {{ getv "/network/tcp/no/delay" }}
+{{ else }}
+# network.tcp.no_delay: true
+{{ end }}
+
+# Enable or disable TCP keep alive. Defaults to true.
+{{ if exists "/network/tcp/keep/alive" }}
+network.tcp.keep_alive: {{ getv "/network/tcp/keep/alive" }}
+{{ else }}
+# network.tcp.keep_alive: true
+{{ end }}
+
+# Should an address be reused or not. Defaults to true on non-windows machines.
+{{ if exists "/network/tcp/reuse/address" }}
+network.tcp.reuse_address: {{ getv "/network/tcp/reuse/address" }}
+{{ else }}
+# network.tcp.reuse_address: true
+{{ end }}
+
+# The size of the TCP send buffer (specified with size units).
+# By default not explicitly set.
+{{ if exists "/network/tcp/send/buffer/size" }}
+network.tcp.send_buffer_size: {{ getv "/network/tcp/send/buffer/size" }}
+{{ else }}
+# network.tcp.send_buffer_size: ''
+{{ end }}
+
+# The size of the TCP receive buffer (specified with size units). By default not explicitly set.
+{{ if exists "/network/tcp/receive/buffer/size" }}
+network.tcp.receive_buffer_size: {{ getv "/network/tcp/receive/buffer/size" }}
+{{ else }}
+# network.tcp.receive_buffer_size: ''
+{{ end }}
+
+# Node
+# ====
+# Any time that you start an instance of Elasticsearch, you are starting a node.
+# A collection of connected nodes is called a cluster. If you are running a
+# single node of Elasticsearch, then you have a cluster of one node.
+
+# Every node in the cluster can handle HTTP and Transport traffic by default.
+# The transport layer is used exclusively for communication between nodes and
+# between nodes and the Java TransportClient; the HTTP layer is used only by
+# external REST clients.
+
+# All nodes know about all the other nodes in the cluster and can forward client
+# requests to the appropriate node. Besides that, each node serves one or more
+# purpose:
+
+# Master-eligible node
+# A node that has node.master set to true (default), which makes it eligible to
+# be elected as the master node, which controls the cluster.
+{{ if exists "/node/type"  }}
+# node.master: true
+{{ else }}
+{{ if exists "/node/master" }}
+node.master: {{ getv "/node/master" }}
+{{ else }}
+# node.master: true
+{{ end }}
+{{ end }}
+
+# Data node
+# A node that has node.data set to true (default). Data nodes hold data and
+# perform data related operations such as CRUD, search, and aggregations.
+{{ if exists "/node/type" }}
+# node.data: true
+{{ else }}
+{{ if exists "/node/data" }}
+node.data: {{ getv "/node/data" }}
+{{ else }}
+# node.data: true
+{{ end }}
+{{ end }}
+
+# Client node
+# A client node has both node.master and node.data set to false. It can neither
+# hold data nor become the master node. It behaves as a “smart router” and is
+# used to forward cluster-level requests to the master node and data-related
+# requests (such as search) to the appropriate data nodes.
+
+# Tribe node
+# A tribe node, configured via the tribe.* settings, is a special type of client
+# node that can connect to multiple clusters and perform search and other
+# operations across all connected clusters.
+# By default a node is both a master-eligible node and a data node. This is
+# very convenient for small clusters but, as the cluster grows, it becomes
+# important to consider separating dedicated master-eligible nodes from
+# dedicated data nodes.
+
+# • Note •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# Coordinating node
+# -----------------
+# Requests like search requests or bulk-indexing requests may involve data held
+# on different data nodes. A search request, for example, is executed in two
+# phases which are coordinated by the node which receives the client request — 
+# the coordinating node.
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# In the scatter phase, the coordinating node forwards the request to the data
+# nodes which hold the data. Each data node executes the request locally and
+# returns its results to the coordinating node. In the gather phase, the
+# coordinating node reduces each data node’s results into a single global
+# resultset.
+
+# This means that a client node needs to have enough memory and CPU in order to
+# deal with the gather phase.
+
+# Master Eligible Node
+# --------------------
+# The master node is responsible for lightweight cluster-wide actions such as
+# creating or deleting an index, tracking which nodes are part of the cluster,
+# and deciding which shards to allocate to which nodes. It is important for
+# cluster health to have a stable master node.
+
+# Any master-eligible node (all nodes by default) may be elected to become the
+# master node by the master election process.
+
+# Indexing and searching your data is CPU-, memory-, and I/O-intensive work
+# which can put pressure on a node’s resources. To ensure that your master node
+# is stable and not under pressure, it is a good idea in a bigger cluster to
+# split the roles between dedicated master-eligible nodes and dedicated data nodes.
+
+# While master nodes can also behave as coordinating nodes and route search and
+# indexing requests from clients to data nodes, it is better not to use
+# dedicated master nodes for this purpose. It is important for the stability of
+# the cluster that master-eligible nodes do as little work as possible.
+
+# To create a standalone master-eligible node, set:
+# node.master: true # The node.master role is enabled by default.
+# node.data: false  # Disable the node.data role (enabled by default).
+
+{{ if exists "/node/type" }}
+{{ if getv "/node/type" eq "master" }}
+node.master: true
+node.data: false
+{{ end }}
+{{ end }}
+
+# Avoiding split brain with minimum_master_nodes
+# ----------------------------------------------
+# To prevent data loss, it is vital to configure the
+# discovery.zen.minimum_master_nodes setting (which defaults to 1)
+# so that each master-eligible node knows the minimum number of master-eligible
+# nodes that must be visible in order to form a cluster.
+
+# To explain, imagine that you have a cluster consisting of two master-eligible
+# nodes. A network failure breaks communication between these two nodes. Each
+# node sees one master-eligible node… itself. With minimum_master_nodes set to
+# the default of 1, this is sufficient to form a cluster. Each node elects
+# itself as the new master (thinking that the other master-eligible node has
+# died) and the result is two clusters, or a split brain. These two nodes will
+# never rejoin until one node is restarted. Any data that has been written to
+# the restarted node will be lost.
+
+# Now imagine that you have a cluster with three master-eligible nodes, and
+# minimum_master_nodes set to 2. If a network split separates one node from the
+# other two nodes, the side with one node cannot see enough master-eligible
+# nodes and will realise that it cannot elect itself as master. The side with
+# two nodes will elect a new master (if needed) and continue functioning
+# correctly. As soon as the network split is resolved, the single node will
+# rejoin the cluster and start serving requests again.
+
+# This setting should be set to a quorum of master-eligible nodes:
+# (master_eligible_nodes / 2) + 1
+# In other words, if there are three master-eligible nodes, then minimum master
+# nodes should be set to (3 / 2) + 1 or 2:
+# Defaults to 1.
+
+{{ if exists "/discovery/zen/minimum/master/nodes" }}
+discovery.zen.minimum_master_nodes: {{ getv "/discovery/zen/minimum/master/nodes" }}
+{{ else }}
+# discovery.zen.minimum_master_nodes: 2
+{{ end }}
+
+# • Tip ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# An advantage of splitting the master and data roles between dedicated nodes is
+# that you can have just three master-eligible nodes and set
+# minimum_master_nodes to 2. You never have to change this setting, no matter
+# how many dedicated data nodes you add to the cluster.
+
+# Data Node
+# ---------
+# Data nodes hold the shards that contain the documents you have indexed. Data
+# nodes handle data related operations like CRUD, search, and aggregations.
+# These operations are I/O-, memory-, and CPU-intensive. It is important to
+# monitor these resources and to add more data nodes if they are overloaded.
+
+# The main benefit of having dedicated data nodes is the separation of the
+# master and data roles.
+
+# To create a dedicated data node, set:
+# node.master: false # Disable the node.master role (enabled by default).
+# node.data: true    # The node.data role is enabled by default.
+
+{{ if exists "/node/type" }}
+{{ if getv "/node/type" eq "data" }}
+node.master: false
+node.data: true
+{{ end }}
+{{ end }}
+
+# Client Node
+# -----------
+# If you take away the ability to be able to handle master duties and take away
+# the ability to hold data, then you are left with a client node that can only
+# route requests, handle the search reduce phase, and distribute bulk indexing.
+# Essentially, client nodes behave as smart load balancers.
+
+# Standalone client nodes can benefit large clusters by offloading the
+# coordinating node role from data and master-eligible nodes. Client nodes join
+# the cluster and receive the full cluster state, like every other node, and
+# they use the cluster state to route requests directly to the appropriate
+# place(s).
+
+# • Warning! •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# Adding too many client nodes to a cluster can increase the burden on the
+# entire cluster because the elected master node must await acknowledgement of
+# cluster state updates from every node! The benefit of client nodes should not
+# be overstated — data nodes can happily serve the same purpose as client nodes.
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# To create a dedicated client node, set:
+# node.master: false # Disable the node.master role (enabled by default).
+# node.data: false   # Disable the node.data role (enabled by default).
+{{ if exists "/node/type" }}
+{{ if getv "/node/type" eq "client" }}
+node.master: false
+node.data: true
+{{ end }}
+{{ end }}
+
+# Node data path settings
+# Every data and master-eligible node requires access to a data directory where
+# shards and index and cluster metadata will be stored. The path.data defaults
+# to $ES_HOME/data but can be configured in the elasticsearch.yml config file an
+# absolute path or a path relative to $ES_HOME as follows:
+{{ if exists "/path/data" }}
+path.data = {{ getv "/path/data" }}
+{{ else }}
+# path.data: /var/elasticsearch/data
+{{ end }}
+
+# The data path can be shared by multiple nodes, even by nodes from different
+# clusters. This is very useful for testing failover and different
+# configurations on your development machine. In production, however, it is
+# recommended to run only one node of Elasticsearch per server.
+{{ if exists "/node/max/local/storage/nodes" }}
+node.max_local_storage_nodes: {{ getv "/node/max/local/storage/nodes" }}
+{{ else }}
+# node.max_local_storage_nodes: 1
+{{ end }}
+
+# • Warning ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# Never run different node types (i.e. master, data, client) from the same data
+# directory. This can lead to unexpected data loss.
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••

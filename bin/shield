@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+if [ "$ENABLE_SHIELD" == "true" ] ; then
+./bin/plugin install license
+./bin/plugin install shield
+./bin/shield/esusers useradd es_admin -r admin -p something
+fi

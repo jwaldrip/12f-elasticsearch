@@ -1,0 +1,7 @@
+elasticsearch:
+  environment:
+    CLUSTER_NAME: development
+    NODE_NAME: development
+  build: .
+  ports:
+    - "9292:9200"
