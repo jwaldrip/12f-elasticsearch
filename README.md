@@ -1,4 +1,4 @@
-# 12 Factor Elasticsearch
+# 12 Factor Elasticsearch [![Build Status](https://travis-ci.org/jwaldrip/12f-elasticsearch.svg?branch=master)](https://travis-ci.org/jwaldrip/12f-elasticsearch)
 Docker 12 factor elastic search allows a user to configure elastic search using
 nothing but environment variables.
 
