@@ -13,12 +13,14 @@ conf:
 	@echo ']' >> ${CONFFILE}
 
 # Generate a list of environment variables
-env:
-	@cat ./confd/templates/elasticsearch.yml.tmpl | grep -oE '"/(\w|/)+"' | uniq | tr '[a-z]' '[A-Z]' | sed -e 's,"/\(.*\)",\1,' | tr '/' '_' | sed 's/^/ES_/' > .env
+env: conf
+	@cat ./confd/templates/elasticsearch.yml.tmpl | grep -oE '"/(\w|/)+"' | uniq | tr '[a-z]' '[A-Z]' | sed -e 's,"/\(.*\)",\1,' | tr '/' '_' | sed 's/^/ES_/' | lam /dev/stdin -s '="value"' > .env
 	@echo "ES_HOME" >> .env
 
+test: env
+	@docker run --env-file=.env -e QUIET=true -it `docker build -q .` cat config/elasticsearch.yml | ruby -r json -r yaml -e "raise 'no values!' if YAML.load(STDIN.read) == false"
+
 # Generate Samples
-try: conf env
-	@rm -rf ./tmp
+try: conf
 	@mkdir -p ./tmp/config
-	@docker run -e QUIET=true -it `docker build -q .` cat config/elasticsearch.yml > ./tmp/config/elasticsearch.yml
+	@docker run --env-file=.env -e QUIET=true -it `docker build -q .` cat config/elasticsearch.yml > ./tmp/config/elasticsearch.yml

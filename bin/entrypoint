@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
+set -e
 
 # Generate Configuration
 if [ "$QUIET" == "true" ] ; then
   ./bin/config &> /dev/null
-  ./bin/shield &> /dev/null
 else
   ./bin/config
-  ./bin/shield
 fi
 
 # Run command

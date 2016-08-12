@@ -1,5 +1,3 @@
 #!/usr/bin/env bash
 confd -onetime
 sed -i '/^$/N;/^\n$/D' /usr/share/elasticsearch/config/elasticsearch.yml
-sed -i '/^$/N;/^\n$/D' /usr/share/elasticsearch/config/shield/roles.yml
-sed -i '/^$/N;/^\n$/D' /usr/share/elasticsearch/config/shield/users.yml

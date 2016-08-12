@@ -58,22 +58,6 @@ cluster.routing.allocation.same_shard.host: {{ getv "/cluster/routing/allocation
 # cluster.routing.allocation.same_shard.host: false
 {{ end }}
 
-# The number of network streams to open per node to recover a shard from a
-# peer shard. Defaults to 3.
-{{ if exists "/indices/recovery/concurrent/streams" }}
-indices.recovery.concurrent_streams: {{ getv "/indices/recovery/concurrent/streams" }}
-{{ else }}
-# indices.recovery.concurrent_streams: 3
-{{ end }}
-
-# The number of streams to open per node for small files (under 5mb) to recover
-# a shard from a peer shard. Defaults to 2.
-{{ if exists "/indices/recovery/concurrent/small/file/streams" }}
-indices.recovery.concurrent_small_file_streams: {{ getv "/indices/recovery/concurrent/small/file/streams" }}
-{{ else }}
-# indices.recovery.concurrent_small_file_streams: 2
-{{ end }}
-
 # Shard Rebalancing Settings
 # --------------------------
 # The following dynamic settings may be used to control the rebalancing of
@@ -906,6 +890,7 @@ indices.memory.min_shard_index_buffer_size: {{ getv "/indices/memory/max/shard/i
 # ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
 # Cache settings
+# --------------
 # The cache is managed at the node level, and has a default maximum size of
 # 1% of the heap. This can be changed in the config/elasticsearch.yml file with:
 
@@ -1015,9 +1000,9 @@ indices.ttl.bulk_size: {{ getv "/indices/ttl/bulk/size" }}
 # value, or an array of any combination of these.
 # Defaults to _local_.
 {{ if exists "/network/host" }}
-network.host = {{ getv "/network/host" }}
+network.host: {{ getv "/network/host" }}
 {{ else }}
-# network.host = _local_
+# network.host: _local_
 {{ end}}
 
 # In order to join a cluster, a node needs to know the hostname or IP address of
@@ -1035,11 +1020,10 @@ discovery.zen.ping.unicast.hosts: {{ getv "/discovery/zen/ping/unicast/hosts" }}
 # range. If a range is specified, the node will bind to the first available port
 # in the range.
 {{ if exists "/transport/tcp/port" }}
-transport.tcp.port: {{ getv "/transport/tcp/port" }}
+# transport.tcp.port: {{ getv "/transport/tcp/port" }} # Set in transport settings
 {{ else }}
 # transport.tcp.port: 9300-9400.
 {{ end }}
-
 
 # Special values for network.host
 # The following special values may be passed to network.host:
@@ -1157,27 +1141,19 @@ network.tcp.receive_buffer_size: {{ getv "/network/tcp/receive/buffer/size" }}
 # Master-eligible node
 # A node that has node.master set to true (default), which makes it eligible to
 # be elected as the master node, which controls the cluster.
-{{ if exists "/node/type"  }}
-# node.master: true
-{{ else }}
-{{ if exists "/node/master" }}
+{{ if (not (exists "/node/type")) and (exists "/node/master") }}
 node.master: {{ getv "/node/master" }}
 {{ else }}
 # node.master: true
-{{ end }}
 {{ end }}
 
 # Data node
 # A node that has node.data set to true (default). Data nodes hold data and
 # perform data related operations such as CRUD, search, and aggregations.
-{{ if exists "/node/type" }}
-# node.data: true
-{{ else }}
-{{ if exists "/node/data" }}
+{{ if (not (exists "/node/type")) and (exists "/node/data") }}
 node.data: {{ getv "/node/data" }}
 {{ else }}
 # node.data: true
-{{ end }}
 {{ end }}
 
 # Client node
@@ -1185,15 +1161,6 @@ node.data: {{ getv "/node/data" }}
 # hold data nor become the master node. It behaves as a “smart router” and is
 # used to forward cluster-level requests to the master node and data-related
 # requests (such as search) to the appropriate data nodes.
-
-# Tribe node
-# A tribe node, configured via the tribe.* settings, is a special type of client
-# node that can connect to multiple clusters and perform search and other
-# operations across all connected clusters.
-# By default a node is both a master-eligible node and a data node. This is
-# very convenient for small clusters but, as the cluster grows, it becomes
-# important to consider separating dedicated master-eligible nodes from
-# dedicated data nodes.
 
 # • Note •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 # Coordinating node
@@ -1234,14 +1201,12 @@ node.data: {{ getv "/node/data" }}
 # the cluster that master-eligible nodes do as little work as possible.
 
 # To create a standalone master-eligible node, set:
+{{ if and (exists "/node/type") (eq (getv "/node/type") "master") }}
+node.master: true # The node.master role is enabled by default.
+node.data: false  # Disable the node.data role (enabled by default).
+{{ else }}
 # node.master: true # The node.master role is enabled by default.
 # node.data: false  # Disable the node.data role (enabled by default).
-
-{{ if exists "/node/type" }}
-{{ if getv "/node/type" eq "master" }}
-node.master: true
-node.data: false
-{{ end }}
 {{ end }}
 
 # Avoiding split brain with minimum_master_nodes
@@ -1285,6 +1250,7 @@ discovery.zen.minimum_master_nodes: {{ getv "/discovery/zen/minimum/master/nodes
 # that you can have just three master-eligible nodes and set
 # minimum_master_nodes to 2. You never have to change this setting, no matter
 # how many dedicated data nodes you add to the cluster.
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
 # Data Node
 # ---------
@@ -1297,14 +1263,12 @@ discovery.zen.minimum_master_nodes: {{ getv "/discovery/zen/minimum/master/nodes
 # master and data roles.
 
 # To create a dedicated data node, set:
+{{ if and (exists "/node/type") (eq (getv "/node/type") "data") }}
+node.master: false # Disable the node.master role (enabled by default).
+node.data: true    # The node.data role is enabled by default.
+{{ else }}
 # node.master: false # Disable the node.master role (enabled by default).
 # node.data: true    # The node.data role is enabled by default.
-
-{{ if exists "/node/type" }}
-{{ if getv "/node/type" eq "data" }}
-node.master: false
-node.data: true
-{{ end }}
 {{ end }}
 
 # Client Node
@@ -1328,13 +1292,12 @@ node.data: true
 # ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
 # To create a dedicated client node, set:
+{{ if and (exists "/node/type") (eq (getv "/node/type") "client") }}
+node.master: false # Disable the node.master role (enabled by default).
+node.data: true    # Disable the node.data role (enabled by default).
+{{ else }}
 # node.master: false # Disable the node.master role (enabled by default).
 # node.data: false   # Disable the node.data role (enabled by default).
-{{ if exists "/node/type" }}
-{{ if getv "/node/type" eq "client" }}
-node.master: false
-node.data: true
-{{ end }}
 {{ end }}
 
 # Node data path settings
@@ -1343,7 +1306,7 @@ node.data: true
 # to $ES_HOME/data but can be configured in the elasticsearch.yml config file an
 # absolute path or a path relative to $ES_HOME as follows:
 {{ if exists "/path/data" }}
-path.data = {{ getv "/path/data" }}
+path.data: {{ getv "/path/data" }}
 {{ else }}
 # path.data: /var/elasticsearch/data
 {{ end }}
@@ -1358,7 +1321,112 @@ node.max_local_storage_nodes: {{ getv "/node/max/local/storage/nodes" }}
 # node.max_local_storage_nodes: 1
 {{ end }}
 
-# • Warning ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# • Warning! •••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 # Never run different node types (i.e. master, data, client) from the same data
 # directory. This can lead to unexpected data loss.
 # ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+# Transport
+# The transport module is used for internal communication between nodes within
+# the cluster. Each call that goes from one node to the other uses the transport
+# module (for example, when an HTTP GET request is processed by one node, and
+# should actually be processed by another node that holds the data).
+
+# The transport mechanism is completely asynchronous in nature, meaning that
+# there is no blocking thread waiting for a response. The benefit of using
+# asynchronous communication is first solving the C10k problem, as well as being
+# the ideal solution for scatter (broadcast) / gather operations such as search
+# in ElasticSearch.
+
+# TCP Transport
+# The TCP transport is an implementation of the transport module using TCP. It
+# allows for the following settings:
+
+# A bind port range. Defaults to 9300-9400.
+{{ if exists "/transport/tcp/port" }}
+transport.tcp.port: {{ getv "/transport/tcp/port" }}
+{{ else }}
+# transport.tcp.port: 9300-9400
+{{ end }}
+
+# The port that other nodes in the cluster should use when communicating with
+# this node. Useful when a cluster node is behind a proxy or firewall and the
+# transport.tcp.port is not directly addressable from the outside. Defaults to
+# the actual port assigned via transport.tcp.port.
+{{ if exists "/transport/tcp/port" }}
+transport.publish_port: {{ getv "/transport/tcp/port" }}
+{{ else }}
+# transport.publish_port: 9300-9400
+{{ end }}
+
+# The host address to bind the transport service to. Defaults to transport.host
+# (if set) or network.bind_host.
+{{ if exists "/transport/bind/host" }}
+transport.bind_host: {{ getv "/transport/bind/host" }}
+{{ else }}
+# transport.bind_host: localhost
+{{ end }}
+
+# The host address to publish for nodes in the cluster to connect to. Defaults
+# to transport.host (if set) or network.publish_host.
+{{ if exists "/transport/publish/host" }}
+transport.publish_host: {{ getv "/transport/publish/host" }}
+{{ else }}
+# transport.publish_host: 9300-9400
+{{ end }}
+
+# Used to set the transport.bind_host and the transport.publish_host Defaults to
+# transport.host or network.host.
+{{ if exists "/transport/host" }}
+transport.host: {{ getv "/transport/host" }}
+{{ else }}
+# transport.host: localhost
+{{ end }}
+
+# The socket connect timeout setting (in time setting format). Defaults to 30s.
+{{ if exists "/transport/tcp/connect/timeout" }}
+transport.tcp.connect_timeout: {{ getv "/transport/tcp/connect/timeout" }}
+{{ else }}
+# transport.tcp.connect_timeout: 30s
+{{ end }}
+
+# Set to true to enable compression (LZF) between all nodes. Defaults to false.
+{{ if exists "/transport/tcp/compress" }}
+transport.tcp.compress: {{ getv "/transport/tcp/compress" }}
+{{ else }}
+# transport.tcp.compress: false
+{{ end }}
+
+# Schedule a regular ping message to ensure that connections are kept alive.
+# Defaults to 5s in the transport client and -1 (disabled) elsewhere.
+{{ if exists "/transport/ping/schedule" }}
+transport.ping_schedule: {{ getv "/transport/ping/schedule" }}
+{{ else }}
+# transport.ping_schedule: 5s
+{{ end }}
+
+# Index Modules
+# =============
+# Index Modules are modules created per index and control all aspects related to
+# an index.
+
+# Static index settings
+# ---------------------
+# Below is a list of all static index settings that are not associated with any specific index module:
+
+# The number of primary shards that an index should have. Defaults to 5. This
+# setting can only be set at index creation time. It cannot be changed on a closed index.
+{{ if exists "/index/number/of/shards" }}
+index.number_of_shards: {{ getv "/index/number/of/shards" }}
+{{ else }}
+# index.number_of_shards: 5
+{{ end }}
+
+# The default value compresses stored data with LZ4 compression, but this can be
+# set to best_compression which uses DEFLATE for a higher compression ratio, at
+# the expense of slower stored fields performance.
+{{ if exists "/index/codec" }}
+index.codec: {{ getv "/index/codec" }}
+{{ else }}
+# index.codec: codec-name
+{{ end }}
