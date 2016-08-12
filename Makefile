@@ -9,12 +9,12 @@ conf:
 	@echo 'dest = "/usr/share/elasticsearch/config/elasticsearch.yml"' >> ${CONFFILE}
 	@echo 'prefix = "es"' >> ${CONFFILE}
 	@echo 'keys = [' >> ${CONFFILE}
-	@cat ./confd/templates/elasticsearch.yml.tmpl | grep -oE '"/(\w|/)+"' | uniq | lam /dev/stdin -s "," | sed -e 's/^/  /' >> ${CONFFILE}
+	@cat ./confd/templates/elasticsearch.yml.tmpl | grep -oE '"/(\w|/)+"' | uniq | sed -e 's/$$/,/' | sed -e 's/^/  /' >> ${CONFFILE}
 	@echo ']' >> ${CONFFILE}
 
 # Generate a list of environment variables
 env: conf
-	@cat ./confd/templates/elasticsearch.yml.tmpl | grep -oE '"/(\w|/)+"' | uniq | tr '[a-z]' '[A-Z]' | sed -e 's,"/\(.*\)",\1,' | tr '/' '_' | sed 's/^/ES_/' | lam /dev/stdin -s '="value"' > .env
+	@cat ./confd/templates/elasticsearch.yml.tmpl | grep -oE '"/(\w|/)+"' | uniq | tr '[a-z]' '[A-Z]' | sed -e 's,"/\(.*\)",\1,' | tr '/' '_' | sed 's/^/ES_/' | sed -e 's/$$/="value"/' > .env
 	@echo "ES_HOME" >> .env
 
 test: env
