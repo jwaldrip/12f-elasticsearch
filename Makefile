@@ -4,7 +4,6 @@ USERSCONFFILE=./confd/conf.d/users.yml.toml
 
 # Regenerate the config file by inspecting the template
 conf:
-	# Elasticsearch Config
 	@echo '[template]' > ${CONFFILE}
 	@echo 'src = "elasticsearch.yml.tmpl"' >> ${CONFFILE}
 	@echo 'dest = "/usr/share/elasticsearch/config/elasticsearch.yml"' >> ${CONFFILE}
