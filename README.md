@@ -3,7 +3,9 @@ Docker 12 factor elastic search allows a user to configure elastic search using
 nothing but environment variables.
 
 ## Running
-`docker run -e ES_{VAR} jwaldrip/12f-elasticsearch`
+```sh
+$ docker run -e ES_{VAR} jwaldrip/12f-elasticsearch
+```
 
 ## Variables
 See `.env` for a list of environment variables.
