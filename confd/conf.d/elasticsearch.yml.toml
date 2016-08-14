@@ -107,4 +107,8 @@ keys = [
   "/transport/ping/schedule",
   "/index/number/of/shards",
   "/index/codec",
+  "/cluster/routing/allocation/total/shards/per/node",
+  "/index/merge/scheduler/max/thread/count",
+  "/index/similarity/default/type",
+  "/index/store/type",
 ]

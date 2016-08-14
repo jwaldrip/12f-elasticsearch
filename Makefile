@@ -21,6 +21,6 @@ test: env
 	@docker run --env-file=.env -e QUIET=true -it `docker build -q .` cat config/elasticsearch.yml | ruby -r json -r yaml -e "raise 'no values!' if YAML.load(STDIN.read) == false"
 
 # Generate Samples
-try: conf
+try: env
 	@mkdir -p ./tmp/config
 	@docker run --env-file=.env -e QUIET=true -it `docker build -q .` cat config/elasticsearch.yml > ./tmp/config/elasticsearch.yml

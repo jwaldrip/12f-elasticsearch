@@ -1472,3 +1472,63 @@ index.merge.scheduler.max_thread_count: {{ getv "/index/merge/scheduler/max/thre
 {{ else }}
 # index.merge.scheduler.max_thread_count: 1
 {{ end }}
+
+# Default and Base Similarities
+# -----------------------------
+# By default, Elasticsearch will use whatever similarity is configured as
+# default. However, the similarity functions queryNorm() and coord() are not
+# per-field. Consequently, for expert users wanting to change the implementation
+# used for these two methods, while not changing the default, it is possible to
+# configure a similarity with the name base. This similarity will then be used
+# for the two methods.
+
+{{ if exists "/index/similarity/default/type" }}
+index.similarity.default.type: {{ getv "/index/similarity/default/type" }}
+{{ else }}
+# index.similarity.default.type: BM25
+{{ end }}
+
+# Store
+# =====
+# The store module allows you to control how index data is stored and accessed
+# on disk.
+
+# File system storage types
+# There are different file system implementations or storage types. The best one
+# for the operating environment will be automatically chosen: mmapfs on Windows
+# 64bit, simplefs on Windows 32bit, and default (hybrid niofs and mmapfs) for
+# the rest.
+
+# The following sections lists all the different storage types supported.
+
+# > simplefs
+#   The Simple FS type is a straightforward implementation of file system
+#   storage (maps to Lucene SimpleFsDirectory) using a random access file. This
+#   implementation has poor concurrent performance (multiple threads will
+#   bottleneck). It is usually better to use the niofs when you need index
+#   persistence.
+# > niofs
+#   The NIO FS type stores the shard index on the file system (maps to Lucene
+#   NIOFSDirectory) using NIO. It allows multiple threads to read from the same
+#   file concurrently. It is not recommended on Windows because of a bug in the
+#   SUN Java implementation.
+# > mmapfs
+#   The MMap FS type stores the shard index on the file system (maps to Lucene
+#   MMapDirectory) by mapping a file into memory (mmap). Memory mapping uses up
+#   a portion of the virtual memory address space in your process equal to the
+#   size of the file being mapped. Before using this class, be sure you have
+#   allowed plenty of virtual address space.
+# > default_fs
+#   The default type is a hybrid of NIO FS and MMapFS, which chooses the best
+#   file system for each type of file. Currently only the Lucene term dictionary
+#   and doc values files are memory mapped to reduce the impact on the operating
+#   system. All other files are opened using Lucene NIOFSDirectory. Address
+#   space settings (the section called “Virtual memoryedit”) might also apply
+#   if your term dictionaries are large.
+
+# This can be overridden for all indices:
+{{ if exists "/index/store/type" }}
+index.store.type: {{ getv "/index/store/type" }}
+{{ else }}
+# index.store.type: niofs
+{{ end }}
