@@ -11,9 +11,7 @@ COPY ./bin ./bin
 ENTRYPOINT [ "./bin/entrypoint" ]
 
 # Default ENV
-ENV ES_SHIELD_ADMIN_USERS=admin:admin
-ENV ES_SHIELD_POWER_USERS=power:power
-ENV ES_SHIELD_READONLY_USERS=readonly:readonly
+ENV ES_NETWORK_HOST 0.0.0.0
 
 # Default Command
 CMD [ "elasticsearch" ]

@@ -1,3 +1,8 @@
 #!/usr/bin/env bash
 confd -onetime
+if [ "$COMMENTS" != "true" ] ; then
+sed -i 's/^#.*$//' /usr/share/elasticsearch/config/elasticsearch.yml
+sed -i ':a;N;$!ba;s/\n//g' /usr/share/elasticsearch/config/elasticsearch.yml
+else
 sed -i '/^$/N;/^\n$/D' /usr/share/elasticsearch/config/elasticsearch.yml
+fi

@@ -1141,7 +1141,7 @@ network.tcp.receive_buffer_size: {{ getv "/network/tcp/receive/buffer/size" }}
 # Master-eligible node
 # A node that has node.master set to true (default), which makes it eligible to
 # be elected as the master node, which controls the cluster.
-{{ if (not (exists "/node/type")) and (exists "/node/master") }}
+{{ if and (not (exists "/node/type")) (exists "/node/master") }}
 node.master: {{ getv "/node/master" }}
 {{ else }}
 # node.master: true
@@ -1150,7 +1150,7 @@ node.master: {{ getv "/node/master" }}
 # Data node
 # A node that has node.data set to true (default). Data nodes hold data and
 # perform data related operations such as CRUD, search, and aggregations.
-{{ if (not (exists "/node/type")) and (exists "/node/data") }}
+{{ if and (not (exists "/node/type")) (exists "/node/data") }}
 node.data: {{ getv "/node/data" }}
 {{ else }}
 # node.data: true
@@ -1201,9 +1201,14 @@ node.data: {{ getv "/node/data" }}
 # the cluster that master-eligible nodes do as little work as possible.
 
 # To create a standalone master-eligible node, set:
-{{ if and (exists "/node/type") (eq (getv "/node/type") "master") }}
+{{ if exists "/node/type" }}
+{{ if eq (getv "/node/type") "master" }}
 node.master: true # The node.master role is enabled by default.
 node.data: false  # Disable the node.data role (enabled by default).
+{{ else }}
+# node.master: true # The node.master role is enabled by default.
+# node.data: false  # Disable the node.data role (enabled by default).
+{{ end }}
 {{ else }}
 # node.master: true # The node.master role is enabled by default.
 # node.data: false  # Disable the node.data role (enabled by default).
@@ -1263,9 +1268,14 @@ discovery.zen.minimum_master_nodes: {{ getv "/discovery/zen/minimum/master/nodes
 # master and data roles.
 
 # To create a dedicated data node, set:
-{{ if and (exists "/node/type") (eq (getv "/node/type") "data") }}
+{{ if exists "/node/type" }}
+{{ if eq (getv "/node/type") "data" }}
 node.master: false # Disable the node.master role (enabled by default).
 node.data: true    # The node.data role is enabled by default.
+{{ else }}
+# node.master: false # Disable the node.master role (enabled by default).
+# node.data: true    # The node.data role is enabled by default.
+{{ end }}
 {{ else }}
 # node.master: false # Disable the node.master role (enabled by default).
 # node.data: true    # The node.data role is enabled by default.
@@ -1292,9 +1302,14 @@ node.data: true    # The node.data role is enabled by default.
 # ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
 # To create a dedicated client node, set:
-{{ if and (exists "/node/type") (eq (getv "/node/type") "client") }}
+{{ if exists "/node/type" }}
+{{ if eq (getv "/node/type") "client" }}
 node.master: false # Disable the node.master role (enabled by default).
 node.data: true    # Disable the node.data role (enabled by default).
+{{ else }}
+# node.master: false # Disable the node.master role (enabled by default).
+# node.data: false   # Disable the node.data role (enabled by default).
+{{ end }}
 {{ else }}
 # node.master: false # Disable the node.master role (enabled by default).
 # node.data: false   # Disable the node.data role (enabled by default).
