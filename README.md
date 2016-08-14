@@ -10,6 +10,10 @@ $ docker run -e ES_{VAR} jwaldrip/12f-elasticsearch
 ## Variables
 See `.env` for a list of environment variables.
 
+## Output With Comments
+When specifying `COMMENTS=true` the config will generate with documentation as
+comments.
+
 ## TODO
 * Plugin Support
 * Better Documentation
