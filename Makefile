@@ -9,7 +9,7 @@ conf:
 	@echo 'dest = "/usr/share/elasticsearch/config/elasticsearch.yml"' >> ${CONFFILE}
 	@echo 'prefix = "es"' >> ${CONFFILE}
 	@echo 'keys = [' >> ${CONFFILE}
-	@cat ./confd/templates/elasticsearch.yml.tmpl | grep -oE '"/(\w|/)+"' | uniq | sed -e 's/$$/,/' | sed -e 's/^/  /' >> ${CONFFILE}
+	@cat ./confd/templates/elasticsearch.yml.tmpl | grep -oE '"/(\w|/)+"' | uniq | sed -e 's/$$/,/' | sort | sed -e 's/^/  /' >> ${CONFFILE}
 	@echo ']' >> ${CONFFILE}
 
 build: conf
