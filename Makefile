@@ -12,6 +12,9 @@ conf:
 	@cat ./confd/templates/elasticsearch.yml.tmpl | grep -oE '"/(\w|/)+"' | uniq | sed -e 's/$$/,/' | sed -e 's/^/  /' >> ${CONFFILE}
 	@echo ']' >> ${CONFFILE}
 
+build: conf
+	@docker build -t jwaldrip/12f-elasticsearch .
+
 # Generate a list of environment variables
 env: conf
 	@cat ./confd/templates/elasticsearch.yml.tmpl | grep -oE '"/(\w|/)+"' | uniq | tr '[a-z]' '[A-Z]' | sed -e 's,"/\(.*\)",\1,' | tr '/' '_' | sed 's/^/ES_/' | sed -e 's/$$/="value"/' > .env
