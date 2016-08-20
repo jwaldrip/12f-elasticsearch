@@ -12,6 +12,7 @@ ENTRYPOINT [ "./bin/entrypoint" ]
 
 # Default ENV
 ENV ES_NETWORK_HOST 0.0.0.0
+ENV PORT 9200
 
 # Default Command
 CMD [ "elasticsearch" ]

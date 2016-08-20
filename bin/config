@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Set PORT
+export ES_HTTP_PORT=$PORT
 confd -onetime
 if [ "$COMMENTS" != "true" ] ; then
 sed -i 's/^#.*$//' /usr/share/elasticsearch/config/elasticsearch.yml

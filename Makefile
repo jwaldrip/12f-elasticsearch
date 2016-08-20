@@ -15,6 +15,9 @@ conf:
 build: conf
 	@docker build -t jwaldrip/12f-elasticsearch .
 
+run: build
+	@docker run jwaldrip/12f-elasticsearch
+
 # Generate a list of environment variables
 env: conf
 	@cat ./confd/templates/elasticsearch.yml.tmpl | grep -oE '"/(\w|/)+"' | uniq | tr '[a-z]' '[A-Z]' | sed -e 's,"/\(.*\)",\1,' | tr '/' '_' | sed 's/^/ES_/' | sed -e 's/$$/="value"/' > .env
